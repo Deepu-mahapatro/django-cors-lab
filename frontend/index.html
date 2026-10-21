@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Learning Lab</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="container">
+        <h1>CORS Learning Lab</h1>
+        <p>Test communication between JavaScript and Django.</p>
+
+        <div class="panel">
+            <p><strong>Frontend origin:</strong> <span id="origin"></span></p>
+            <p><strong>Backend API:</strong> http://127.0.0.1:8000/api/</p>
+
+            <button id="getButton">Send GET Request</button>
+
+            <button id="postButton">Send JSON POST Request</button>
+
+            <h2>Response</h2>
+            <pre id="output">Click the button to send a request.</pre>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
