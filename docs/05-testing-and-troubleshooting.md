@@ -1,181 +1,110 @@
-# Django CORS Learning Lab — Project Architecture
+# Testing and Troubleshooting — Django CORS Learning Lab
 
-## 1. Project Overview
+## 1. What Are We Testing?
 
-Django CORS Learning Lab is a hands-on project designed to understand how a frontend communicates with a Django backend across different origins.
+The purpose of testing this project is to verify that the frontend can communicate with the Django backend while the configured CORS policy and Django's CSRF protection remain enabled.
 
-The project demonstrates Cross-Origin Resource Sharing (CORS), browser preflight requests, HTTP methods, CSRF protection, cookies, request headers, and HTTP responses.
+Our tests cover four important areas:
 
-Instead of only learning these concepts theoretically, we implemented custom CORS middleware and tested requests through both a browser and Postman.
+- **Connectivity:** Can the frontend reach the Django server?
+- **CORS:** Does the backend permit the configured frontend origin?
+- **Preflight:** Does the middleware approve or reject qualifying OPTIONS requests correctly?
+- **CSRF:** Does Django reject unsafe requests without valid CSRF information and accept a correctly configured request?
 
-### Project objectives
+### Project URLs
 
-- Understand frontend-to-backend communication.
-- Learn why browsers enforce the Same-Origin Policy.
-- Implement CORS handling using Django middleware.
-- Understand when and why browsers send `OPTIONS` preflight requests.
-- Implement CSRF token generation and validation.
-- Test allowed and rejected origins.
-- Troubleshoot real HTTP errors.
-- Prepare the project for documentation and GitHub.
-
-### Technology stack
-
-| Technology | Purpose |
+| Component | URL |
 |---|---|
-| Python | Backend programming language |
-| Django | Backend framework and HTTP request handling |
-| JavaScript | Sends HTTP requests from the frontend |
-| HTML | Defines the frontend page structure |
-| CSS | Styles the frontend |
-| HTTP | Communication protocol between frontend and backend |
-| Postman | Tests API requests and responses |
-| VS Code | Development environment |
-| Git and GitHub | Version control and project hosting |
+| Frontend | `http://127.0.0.1:5500` |
+| Backend API | `http://127.0.0.1:8000/api/` |
+| CSRF endpoint | `http://127.0.0.1:8000/api/csrf/` |
+
+The frontend should use `127.0.0.1` consistently for the backend rather than switching between `localhost` and `127.0.0.1`.
 
 ---
 
-## 2. Application Architecture
+## 2. Prepare the Development Environment
 
-The project contains two separately running applications.
-
-- **Frontend:** Runs using VS Code Live Server at `http://127.0.0.1:5500`.
-- **Backend:** Runs using the Django development server at `http://127.0.0.1:8000`.
-
-Although both applications run on the same computer, their origins differ because their ports are different.
-
-An origin consists of a scheme, hostname, and port.
-
-For example:
-
-| URL | Origin |
-|---|---|
-| `http://127.0.0.1:5500` | `http://127.0.0.1:5500` |
-| `http://127.0.0.1:8000` | `http://127.0.0.1:8000` |
-| `http://localhost:5500` | `http://localhost:5500` |
-
-The frontend and backend on ports `5500` and `8000` are cross-origin. Also, `localhost` and `127.0.0.1` are different hostnames, so they represent different origins.
-
-### Architecture diagram
-
-```mermaid
-flowchart TD
-    A[User] --> B[Frontend HTML and JavaScript]
-    B --> C[Browser Fetch API]
-    C --> D{Does this request require CORS preflight?}
-    D -->|Yes| E[OPTIONS Preflight]
-    E --> F[Django CORS Middleware]
-    F --> G{Origin, method, headers allowed?}
-    G -->|No| H[403 Preflight Rejected]
-    G -->|Yes| I[204 Preflight Approved]
-    I --> J[Actual HTTP Request]
-    D -->|No| J
-    J --> K[Django Middleware Stack]
-    K --> L[CSRF Validation for Unsafe Requests]
-    L --> M[URL Routing]
-    M --> N[API View]
-    N --> O[HTTP Response]
-    O --> P[CORS Response Headers]
-    P --> Q[Browser Checks CORS Response]
-    Q --> R[JavaScript Receives Response]
-```
-
-**Important:** Not every cross-origin request requires preflight. Browsers automatically send `OPTIONS` when a request meets the conditions that require CORS preflight.
-
----
-
-## 3. Final Project Folder Structure
-
-The following structure represents the intended organization of the project.
+Before testing, verify that the project structure is correct:
 
 ```text
 django-cors-lab/
-│
 ├── backend/
-│   ├── config/
-│   │   ├── __init__.py
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   ├── asgi.py
-│   │   └── wsgi.py
-│   │
-│   ├── api/
-│   │   ├── migrations/
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── apps.py
-│   │   ├── middleware.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   ├── urls.py
-│   │   └── views.py
-│   │
+│   ├── venv/
 │   ├── manage.py
 │   ├── requirements.txt
-│   └── .env.example
-│
+│   ├── config/
+│   │   ├── settings.py
+│   │   └── urls.py
+│   └── api/
+│       ├── views.py
+│       ├── urls.py
+│       └── middleware.py
 ├── frontend/
 │   ├── index.html
 │   ├── style.css
 │   └── script.js
-│
 ├── docs/
 │   ├── 01-project-architecture.md
 │   ├── 02-cors-fundamentals.md
 │   ├── 03-options-preflight-flow.md
 │   ├── 04-csrf-protection-flow.md
 │   └── 05-testing-and-troubleshooting.md
-│
 ├── .gitignore
 └── README.md
 ```
 
-This is the target structure, not a claim that every listed file has already been audited or created. Keep Django's generated files, such as `__init__.py`, `migrations/`, `asgi.py`, and `wsgi.py`, when present.
+### Start the Django backend
 
-The project does not need a database model merely to demonstrate CORS and CSRF. The existing welcome endpoint returns JSON without creating a database record.
+Open a terminal in the project root:
+
+```bash
+cd backend
+```
+
+Activate the virtual environment on Windows Command Prompt:
+
+```bat
+venv\Scripts\activate
+```
+
+Run Django's system checks:
+
+```bash
+python manage.py check
+```
+
+Start the development server:
+
+```bash
+python manage.py runserver 127.0.0.1:8000
+```
+
+### Start the frontend
+
+Open the `frontend/index.html` file using VS Code Live Server and configure it to use port `5500`.
+
+Verify that the browser origin is:
+
+```text
+http://127.0.0.1:5500
+```
+
+If Live Server uses a different port, update `ALLOWED_ORIGINS` and the relevant trusted-origin configuration to match the actual origin.
 
 ---
 
-## 4. Responsibility of Each Important File
+## 3. Test Basic Backend Connectivity
 
-| File | Responsibility |
-|---|---|
-| `backend/config/settings.py` | Configures Django, installed apps, middleware, allowed hosts, and CSRF trusted origins. |
-| `backend/config/urls.py` | Connects the API URL configuration to the main Django application. |
-| `backend/api/middleware.py` | Implements our custom CORS preflight checks and adds CORS response headers. |
-| `backend/api/views.py` | Defines the welcome endpoint and CSRF token endpoint. |
-| `backend/api/urls.py` | Maps API paths to their corresponding views. |
-| `backend/manage.py` | Provides Django management commands. |
-| `frontend/index.html` | Defines the page and request buttons. |
-| `frontend/style.css` | Controls the frontend appearance. |
-| `frontend/script.js` | Sends GET requests and CSRF-protected JSON POST requests. |
-| `backend/requirements.txt` | Records Python package dependencies. |
-| `.gitignore` | Excludes generated files, local secrets, and other files that should not be committed. |
-| `README.md` | Provides the project overview, setup instructions, and links to the documentation. |
-| `docs/` | Contains detailed explanations of the architecture, CORS, preflight, CSRF, and testing. |
+First, test the API without involving the frontend.
 
-### Why is middleware important?
+Open this URL in a browser or send a GET request from Postman:
 
-Middleware processes HTTP requests and responses around the view layer.
+```text
+http://127.0.0.1:8000/api/
+```
 
-Our custom CORS middleware is positioned before Django's CSRF middleware. This allows it to recognize and handle qualifying preflight requests before they proceed through normal Django request processing.
-
-For an actual POST request, the custom middleware normally calls the next middleware, allowing Django's CSRF checks and view processing to occur.
-
----
-
-## 5. API Endpoints Implemented
-
-The project currently uses two endpoints.
-
-| Method | Endpoint | Purpose | Expected result |
-|---|---|---|---|
-| GET | `/api/` | Returns the welcome JSON. | `200 OK` |
-| GET | `/api/csrf/` | Provides a CSRF token and ensures a CSRF cookie is set. | `200 OK` |
-| OPTIONS | `/api/` | Handles qualifying CORS preflight requests through our middleware. | `204` if allowed; `403` if rejected by the custom preflight checks |
-| POST | `/api/` | Demonstrates a CSRF-protected POST request. | `200 OK` when validation succeeds |
-
-### Welcome endpoint response
+Expected response:
 
 ```json
 {
@@ -185,195 +114,297 @@ The project currently uses two endpoints.
 }
 ```
 
-The current `home()` view returns this response for POST as well as GET. It does not save the submitted `Laptop` payload to a database.
-
-The `OPTIONS` response is generated by the custom middleware for qualifying preflight requests, not by the welcome view.
-
----
-
-## 6. How the Frontend Communicates with Django
-
-The frontend uses JavaScript's `fetch()` API to send HTTP requests.
-
-### GET request
-
-```javascript
-const API_URL = "http://127.0.0.1:8000/api/";
-
-const response = await fetch(API_URL);
-const data = await response.json();
-
-console.log(data);
-```
-
-The browser sends a GET request to Django. The view returns JSON, and JavaScript reads the response.
-
-### CSRF-protected POST request
-
-```javascript
-const csrfResponse = await fetch(API_URL + "csrf/", {
-    credentials: "include",
-});
-
-const csrfData = await csrfResponse.json();
-
-const response = await fetch(API_URL, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfData.csrfToken,
-    },
-    body: JSON.stringify({
-        name: "Laptop",
-    }),
-});
-```
-
-The POST flow has two logical requests:
-
-1. The frontend obtains a CSRF token and receives the corresponding cookie.
-2. The frontend sends the POST with the token header and includes credentials so the relevant cookie can be sent.
-
-Because this is a cross-origin JSON request with a custom header, the browser normally performs a CORS preflight before sending the actual POST.
-
-The browser does not normally include the actual request's cookies in the preflight itself. The preflight response must nevertheless allow credentials for the credentialed actual request.
-
----
-
-## 7. CORS and CSRF Have Different Responsibilities
-
-CORS and CSRF are related to browser security, but they solve different problems.
-
-| Feature | CORS | CSRF |
-|---|---|---|
-| Full name | Cross-Origin Resource Sharing | Cross-Site Request Forgery |
-| Purpose | Controls browser access to cross-origin responses | Helps prevent forged unsafe requests |
-| Implemented here by | `ManualCORSMiddleware` | Django's `CsrfViewMiddleware` |
-| Example check | Is the requesting origin allowed? | Is the CSRF cookie and submitted token valid? |
-| Example failure | Preflight rejected or response blocked by browser CORS checks | Django returns `403 Forbidden` |
-
-CORS is not authentication or authorization. Non-browser clients such as Postman are not restricted by browser CORS enforcement, although Django's own CSRF checks still apply to their requests.
-
-CSRF protection also does not replace authentication, authorization, input validation, or other API security controls.
-
----
-
-## 8. Errors Encountered and How We Fixed Them
-
-During implementation, we encountered several issues.
-
-| Problem | Cause | Resolution |
-|---|---|---|
-| Yellow underlines under Django imports | VS Code's Python analysis had warnings even though Django was installed in the project environment. | Selected the project interpreter and reloaded VS Code. The warnings disappeared. |
-| Browser POST returned `403 CSRF cookie not set` | The original frontend POST did not obtain and send the required CSRF information. | Added the CSRF endpoint request, `credentials: "include"`, and the `X-CSRFToken` header. |
-| Postman POST returned `403` | The direct Postman POST lacked the required matching CSRF cookie and token. | Requested `/api/csrf/`, then sent the matching cookie and token with the POST. |
-| Approved preflight returned `204` | The request passed the custom middleware's origin, method, and header checks. | No fix needed; this was the expected successful result. |
-| Unapproved origin returned `403` | `http://localhost:5500` was not included in `ALLOWED_ORIGINS`. | No fix needed; this confirmed the configured origin rejection behavior. |
-
-### What we learned
-
-An HTTP error must be diagnosed according to the component that generated it.
-
-For example, the CSRF failure was not fixed by changing CORS origins. It was fixed by obtaining and submitting the correct CSRF information.
-
-Similarly, a `204` preflight response confirms that the tested preflight was approved; it does not guarantee that every subsequent API request will pass CSRF validation.
-
----
-
-## 9. Development Setup and Execution
-
-### Prerequisites
-
-- Python installed.
-- VS Code installed.
-- VS Code Live Server extension installed.
-- Postman installed if you want to reproduce the HTTP tests.
-
-### Start the backend
-
-Open a terminal in the `backend/` directory.
-
-Activate the virtual environment in PowerShell:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-Install dependencies if needed:
-
-```powershell
-python -m pip install -r requirements.txt
-```
-
-Check the Django project:
-
-```powershell
-python manage.py check
-```
-
-Start the development server:
-
-```powershell
-python manage.py runserver 127.0.0.1:8000
-```
-
-### Start the frontend
-
-Open `frontend/index.html` in VS Code and select **Open with Live Server**.
-
-Confirm that the frontend origin is:
+Expected status:
 
 ```text
-http://127.0.0.1:5500
+200 OK
 ```
 
-The backend requests in `script.js` should consistently use:
+### What does this test prove?
+
+It confirms that:
+
+- Django is running.
+- The `/api/` URL resolves successfully.
+- The `home()` view returns JSON.
+
+However, a successful direct GET does not prove that browser CORS or CSRF behavior is working correctly. Those require separate tests.
+
+---
+
+## 4. Test the CSRF Token Endpoint
+
+Send a GET request to:
+
+```text
+http://127.0.0.1:8000/api/csrf/
+```
+
+Expected status:
+
+```text
+200 OK
+```
+
+Example response:
+
+```json
+{
+    "csrfToken": "your-generated-token"
+}
+```
+
+The actual token is generated dynamically by Django.
+
+### What should you verify?
+
+1. The response contains a `csrfToken` field.
+2. The response sets the CSRF cookie when the request and cookie settings permit it.
+3. The browser or Postman retains the cookie for the backend host.
+4. The next unsafe request sends the token and matching cookie.
+
+In browser developer tools, inspect the Network tab and the response headers for `Set-Cookie`. Also inspect the browser's cookie storage if the cookie appears to be missing.
+
+A token appearing in JSON alone does not prove that the corresponding cookie was stored or sent.
+
+---
+
+## 5. Test the OPTIONS Preflight
+
+Our custom middleware recognizes a preflight when the request method is OPTIONS and the `Access-Control-Request-Method` header is present.
+
+In Postman, create a request with the following details.
+
+**Method:** `OPTIONS`
+
+**URL:**
 
 ```text
 http://127.0.0.1:8000/api/
 ```
 
-Avoid mixing `localhost` and `127.0.0.1` in backend URLs because they are different hostnames.
+**Headers:**
 
-### Verify the endpoints
+| Key | Value |
+|---|---|
+| `Origin` | `http://127.0.0.1:5500` |
+| `Access-Control-Request-Method` | `POST` |
+| `Access-Control-Request-Headers` | `content-type,x-csrftoken` |
 
-1. Click **Send GET Request** and verify the welcome JSON.
-2. Click **Send JSON POST Request** and verify the successful CSRF-protected response.
-3. Use Postman to test the CSRF endpoint and POST request.
-4. Send an approved preflight request and verify `204`.
-5. Send an unapproved-origin preflight and verify `403`.
+Expected result:
+
+```text
+204 No Content
+```
+
+Check that the response contains appropriate CORS headers, including:
+
+```http
+Access-Control-Allow-Origin: http://127.0.0.1:5500
+Access-Control-Allow-Methods: DELETE, GET, PATCH, POST
+Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRFToken
+Access-Control-Allow-Credentials: true
+Access-Control-Max-Age: 600
+```
+
+The exact formatting and ordering of header values may differ, but the requested origin, method, and headers must be permitted.
+
+### Test a rejected origin
+
+Keep the request the same, but change the `Origin` header to:
+
+```text
+http://localhost:5500
+```
+
+Expected result in our implementation:
+
+```text
+403 Forbidden
+```
+
+This happens because the configured allowlist contains `http://127.0.0.1:5500`, not `http://localhost:5500`.
+
+**Important:** Postman lets us inspect the middleware response, but it does not enforce browser CORS rules. Test in a browser to verify actual browser behavior.
 
 ---
 
-## 10. Production Considerations and Key Takeaways
+## 6. Test the Actual POST Request
 
-This project is a learning implementation, not a production-ready security framework.
+Our frontend POST sends JSON and a CSRF token.
 
-Before deploying it:
+The expected request includes:
 
-- Use HTTPS.
-- Move the Django secret key into an environment variable and never commit it.
-- Set `DEBUG = False` in production.
-- Configure `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` for the real deployment.
-- Configure secure cookie settings appropriate to the deployment's HTTPS and cross-site requirements.
-- Prefer a maintained CORS package or a carefully configured gateway for production rather than maintaining custom CORS middleware without comprehensive testing.
-- Allow only the origins, methods, and headers that the application needs.
-- Keep authentication, authorization, validation, and CSRF protection in place as appropriate.
-- Exclude virtual environments, local secrets, generated files, and local database files from Git.
-- Test the actual browser behavior in addition to testing HTTP responses with Postman.
+```http
+POST /api/ HTTP/1.1
+Content-Type: application/json
+X-CSRFToken: <csrf-token>
+```
 
-### Final summary
+It also needs the corresponding CSRF cookie to be sent.
 
-Django CORS Learning Lab demonstrates how a browser communicates with a Django backend across different origins.
+### Browser test
 
-We implemented custom middleware to process CORS preflight requests, configured Django's CSRF protection, corrected the browser's POST flow, and tested successful and rejected requests.
+1. Open the frontend using Live Server.
+2. Open browser developer tools and select the Network tab.
+3. Click the GET button and verify that the API returns JSON.
+4. Click the POST button.
+5. Inspect the Network tab for the CSRF GET, the OPTIONS preflight when applicable, and the actual POST.
+6. Check the POST status and response body.
 
-The key lesson is that CORS, OPTIONS preflight, and CSRF validation are distinct parts of the HTTP request lifecycle. Understanding where each check occurs makes it easier to diagnose errors and design safer web applications.
+The expected successful result is:
+
+```text
+200 OK
+```
+
+with the welcome JSON.
+
+### Postman test
+
+1. Send GET to `/api/csrf/`.
+2. Confirm the response includes `csrfToken`.
+3. Confirm that the matching `csrftoken` cookie is stored for `127.0.0.1`.
+4. Send POST to `/api/` with `Content-Type: application/json`.
+5. Set `X-CSRFToken` to the token returned by the CSRF endpoint.
+6. Ensure the matching cookie is included.
+7. Send the request.
+
+The expected result is `200 OK`.
+
+**Current project limitation:** The `/api/` view returns welcome JSON for POST requests. It does not create a Laptop record or persist the submitted JSON in a database. A `200 OK` here confirms the request reached the view, not that a record was saved.
+
+---
+
+## 7. Common Errors and How to Fix Them
+
+| Error | Likely cause | Fix |
+|---|---|---|
+| `Connection refused` | Django is not running or the URL/port is incorrect | Start the server and check the API URL. |
+| `404 Not Found` | Incorrect URL route | Verify `config/urls.py` and `api/urls.py`. |
+| `405 Method Not Allowed` | The view or endpoint does not support the method being sent | Check the view's method handling. |
+| `403 CSRF cookie not set` | The required CSRF cookie was not sent | Call `/api/csrf/` first and inspect the cookie. |
+| CSRF token missing or incorrect | The token header is absent or invalid | Send the token returned by the CSRF endpoint and the matching cookie. |
+| OPTIONS returns `403` | Origin, requested method, or requested headers fail the custom allowlist checks | Inspect the three values and compare them with `middleware.py`. |
+| Browser reports a CORS error | The browser could not validate the CORS response | Inspect the preflight and actual response headers in DevTools. |
+| Cookie is not retained or sent | Host mismatch or cookie policy/configuration issue | Use consistent hosts and inspect cookie attributes and browser rules. |
+| Django import warning in VS Code | The editor may be using a different Python interpreter | Select `backend/venv` as the interpreter and reload VS Code. |
+
+### Debugging order
+
+When a request fails, follow this order:
+
+1. Check whether the backend server is running.
+2. Verify the request URL, method, and port.
+3. Check the browser Network tab or Postman response.
+4. If the request uses preflight, inspect the OPTIONS response.
+5. If the POST reaches Django but returns 403, inspect the CSRF error details.
+6. Check Django's terminal output for additional information.
+
+This order helps distinguish connectivity problems, CORS failures, and CSRF failures instead of treating them as one issue.
+
+---
+
+## 8. Browser CORS Errors vs. Django CSRF Errors
+
+CORS and CSRF solve different security problems.
+
+| CORS | CSRF |
+|---|---|
+| Controls whether browser JavaScript can access a cross-origin response, subject to the CORS protocol. | Helps prevent forged unsafe requests using browser credentials. |
+| Uses headers such as `Access-Control-Allow-Origin`. | Uses CSRF tokens, cookies, and Django's validation rules. |
+| May involve an automatic OPTIONS preflight. | Validates unsafe requests such as POST, PATCH, and DELETE. |
+| Does not authenticate users. | Does not replace authentication or authorization. |
+
+### Example: CORS failure
+
+The browser sends a preflight, but the server does not return headers that approve the requested origin, method, and headers.
+
+The browser blocks the cross-origin operation. For a failed preflight, it normally does not send the actual request.
+
+### Example: CSRF failure
+
+The preflight succeeds and the browser sends the POST, but Django rejects it because the CSRF cookie or token is missing or invalid.
+
+The request has reached Django's CSRF validation, but it is not allowed to proceed.
+
+### Key diagnostic question
+
+**Did the browser block the request at the CORS stage, or did Django receive and reject the actual request?**
+
+Use the Network tab, response status, response headers, and Django logs to determine which case occurred.
+
+---
+
+## 9. Final Verification Checklist
+
+Before considering the project ready for GitHub, verify the following.
+
+- [ ] Django starts successfully on `127.0.0.1:8000`.
+- [ ] `python manage.py check` completes without errors.
+- [ ] GET `/api/` returns the expected welcome JSON.
+- [ ] GET `/api/csrf/` returns a CSRF token.
+- [ ] The CSRF cookie is set and sent where required.
+- [ ] The approved-origin OPTIONS test returns `204`.
+- [ ] The unapproved-origin OPTIONS test returns `403` in our implementation.
+- [ ] Browser GET works from the configured frontend origin.
+- [ ] Browser POST succeeds when the CSRF token and cookie are valid.
+- [ ] Postman POST succeeds with the matching token and cookie.
+- [ ] CSRF protection remains enabled.
+- [ ] The root `.gitignore` excludes the virtual environment and sensitive environment files.
+- [ ] Real Django secret keys and credentials are not committed.
+- [ ] All five documentation files are present in `docs/`.
+- [ ] `README.md` explains project setup, testing, and the documentation links.
+
+These checks cover the behavior we implemented and tested. They are not a complete production security audit.
+
+---
+
+## 10. Before Pushing to GitHub
+
+### Review the repository
+
+From the project root, run:
+
+```bash
+git status
+```
+
+Inspect the staged and unstaged changes carefully. Ensure that `backend/venv/`, local `.env` files, cache files, and other generated artifacts are not being committed.
+
+### Check for secrets
+
+The Django secret key should be loaded from an environment variable for deployment. If a real secret key was exposed in source code or committed previously, replace it and review the repository history as appropriate.
+
+A `.gitignore` prevents future untracked files from being added automatically, but it does not remove files already tracked by Git.
+
+### Stage and commit the project
+
+After reviewing the changes:
+
+```bash
+git add .
+git status
+git commit -m "Document Django CORS and CSRF learning lab"
+git push
+```
+
+If this is the first push, configure the GitHub remote and branch according to your repository setup.
+
+### Final project outcome
+
+This project demonstrates:
+
+- How a frontend and Django backend communicate across origins.
+- How CORS response headers control browser access to cross-origin responses.
+- How an OPTIONS preflight is validated by custom middleware.
+- How Django's CSRF token and cookie work together for unsafe requests.
+- How to test request behavior using Postman and browser developer tools.
+- How to diagnose common connectivity, CORS, and CSRF errors.
 
 ### Related documentation
 
+- [Project Architecture](01-project-architecture.md)
 - [CORS Fundamentals](02-cors-fundamentals.md)
 - [OPTIONS Preflight Flow](03-options-preflight-flow.md)
 - [CSRF Protection Flow](04-csrf-protection-flow.md)
-- [Testing and Troubleshooting](05-testing-and-troubleshooting.md)
